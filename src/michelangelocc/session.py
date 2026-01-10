@@ -15,6 +15,7 @@ import signal
 import subprocess
 import socket
 import shutil
+import shlex
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -365,22 +366,26 @@ def create_tmux_session(
     Returns:
         True if session was created successfully
     """
-    # Build the command string for tmux
-    # Need to properly quote/escape the command
-    cmd_str = " ".join(f'"{arg}"' if " " in arg else arg for arg in command)
+    # Use shlex.join for proper shell escaping of command with special chars
+    cmd_str = shlex.join(command)
 
     tmux_cmd = [
         "tmux", "new-session",
         "-d",  # Detached
         "-s", session_name,  # Session name
         "-c", str(working_dir),  # Working directory
-        cmd_str,  # Command to run
+        cmd_str,  # Command to run (properly escaped)
     ]
 
     try:
         result = subprocess.run(tmux_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            # Debug: print error if failed
+            if result.stderr:
+                console.print(f"[dim]tmux error: {result.stderr}[/dim]")
         return result.returncode == 0
-    except Exception:
+    except Exception as e:
+        console.print(f"[dim]tmux exception: {e}[/dim]")
         return False
 
 
