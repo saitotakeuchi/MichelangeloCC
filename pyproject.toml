@@ -1,0 +1,74 @@
+[project]
+name = "michelangelocc"
+version = "0.1.0"
+description = "Claude Code-powered 3D model generator for STL files"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "MichelangeloCC Contributors" }
+]
+keywords = ["3d-printing", "cad", "stl", "claude", "build123d", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+
+dependencies = [
+    # CAD Engine
+    "build123d>=0.7.0",
+
+    # Mesh Processing & Validation
+    "trimesh>=4.0.0",
+    "numpy>=1.24.0",
+
+    # Mesh Repair
+    "pymeshfix>=0.17.0",
+
+    # CLI Framework
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+
+    # Web Server
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "websockets>=11.0",
+
+    # File Watching
+    "watchdog>=3.0.0",
+
+    # Utilities
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+mcc = "michelangelocc.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/michelangelocc"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
