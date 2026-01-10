@@ -15,22 +15,81 @@ MichelangeloCC is a tool that enables Claude Code to generate 3D printable model
 
 ## Installation
 
+### Quick Install (Recommended)
+
+Run the install script - it handles Python version detection and isolated installation automatically:
+
 ```bash
-# Clone the repository
+curl -sSL https://raw.githubusercontent.com/saitotakeuchi/MichelangeloCC/main/install.sh | bash
+```
+
+### Alternative: Using pipx
+
+If you already have [pipx](https://pipx.pypa.io/) installed:
+
+```bash
+pipx install git+https://github.com/saitotakeuchi/MichelangeloCC.git
+```
+
+### Alternative: Using uv
+
+If you prefer [uv](https://github.com/astral-sh/uv):
+
+```bash
+uv tool install git+https://github.com/saitotakeuchi/MichelangeloCC.git
+```
+
+### For Development
+
+```bash
 git clone https://github.com/saitotakeuchi/MichelangeloCC.git
 cd MichelangeloCC
-
-# Install in development mode
-pip install -e .
-
-# Or install with dev dependencies
-pip install -e ".[dev]"
+make install-dev
+source .venv/bin/activate
 ```
 
 ### Requirements
 
 - Python 3.10+
+- macOS or Linux (Windows via WSL)
 - A modern browser for visualization
+
+### Troubleshooting
+
+<details>
+<summary>macOS: "externally-managed-environment" error</summary>
+
+Modern Homebrew Python is PEP 668 compliant and blocks direct pip installs.
+Use the install script, pipx, or uv instead - they create isolated environments automatically.
+
+</details>
+
+<details>
+<summary>"command not found: mcc" after installation</summary>
+
+Your PATH may need updating. Restart your terminal or run:
+
+```bash
+source ~/.zshrc  # or ~/.bashrc
+```
+
+</details>
+
+<details>
+<summary>Uninstalling</summary>
+
+```bash
+# If installed via pipx
+pipx uninstall michelangelocc
+
+# If installed via uv
+uv tool uninstall michelangelocc
+
+# Or use the uninstall script
+curl -sSL https://raw.githubusercontent.com/saitotakeuchi/MichelangeloCC/main/uninstall.sh | bash
+```
+
+</details>
 
 ## Quick Start
 
@@ -191,17 +250,18 @@ MichelangeloCC/
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+# Setup development environment
+make install-dev
+source .venv/bin/activate
 
 # Run tests
-pytest
+make test
 
-# Type checking
-mypy src/
+# Run all checks (lint + typecheck + test)
+make check
 
-# Linting
-ruff check src/
+# See all available commands
+make help
 ```
 
 ## License

@@ -19,6 +19,12 @@ classifiers = [
     "Topic :: Multimedia :: Graphics :: 3D Modeling",
 ]
 
+[project.urls]
+Homepage = "https://github.com/saitotakeuchi/MichelangeloCC"
+Documentation = "https://github.com/saitotakeuchi/MichelangeloCC#readme"
+Repository = "https://github.com/saitotakeuchi/MichelangeloCC.git"
+Issues = "https://github.com/saitotakeuchi/MichelangeloCC/issues"
+
 dependencies = [
     # CAD Engine
     "build123d>=0.7.0",
