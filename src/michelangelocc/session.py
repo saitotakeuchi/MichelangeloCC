@@ -321,8 +321,8 @@ Start by creating the 3D model the user described, then iterate based on their f
 
     cmd.extend(["--append-system-prompt", system_prompt])
 
-    # Add initial prompt
-    cmd.extend(["-p", prompt])
+    # Add initial prompt as positional argument (NOT -p which is print-and-exit)
+    cmd.append(prompt)
 
     return cmd
 
