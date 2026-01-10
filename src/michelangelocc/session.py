@@ -14,7 +14,6 @@ import time
 import signal
 import subprocess
 import socket
-import pty
 import shutil
 from pathlib import Path
 from datetime import datetime
@@ -343,6 +342,89 @@ def cleanup_server():
     _server_process = None
 
 
+# === tmux Session Management ===
+
+def check_tmux_installed() -> bool:
+    """Check if tmux is available on the system."""
+    return shutil.which("tmux") is not None
+
+
+def create_tmux_session(
+    session_name: str,
+    command: list[str],
+    working_dir: Path,
+) -> bool:
+    """
+    Create a detached tmux session running the given command.
+
+    Args:
+        session_name: Name for the tmux session
+        command: Command to run inside the session
+        working_dir: Working directory for the session
+
+    Returns:
+        True if session was created successfully
+    """
+    # Build the command string for tmux
+    # Need to properly quote/escape the command
+    cmd_str = " ".join(f'"{arg}"' if " " in arg else arg for arg in command)
+
+    tmux_cmd = [
+        "tmux", "new-session",
+        "-d",  # Detached
+        "-s", session_name,  # Session name
+        "-c", str(working_dir),  # Working directory
+        cmd_str,  # Command to run
+    ]
+
+    try:
+        result = subprocess.run(tmux_cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def attach_tmux_session(session_name: str) -> int:
+    """
+    Attach to an existing tmux session.
+
+    This blocks until the user detaches or the session ends.
+
+    Args:
+        session_name: Name of the tmux session to attach to
+
+    Returns:
+        Exit code from tmux attach
+    """
+    tmux_cmd = ["tmux", "attach-session", "-t", session_name]
+
+    # Use os.system for proper terminal passthrough
+    # subprocess doesn't handle TTY well for interactive sessions
+    return os.system(" ".join(tmux_cmd))
+
+
+def kill_tmux_session(session_name: str):
+    """
+    Kill a tmux session if it exists.
+
+    Args:
+        session_name: Name of the tmux session to kill
+    """
+    subprocess.run(
+        ["tmux", "kill-session", "-t", session_name],
+        capture_output=True,  # Suppress output
+    )
+
+
+def tmux_session_exists(session_name: str) -> bool:
+    """Check if a tmux session with the given name exists."""
+    result = subprocess.run(
+        ["tmux", "has-session", "-t", session_name],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
 def run_interactive_session(
     prompt: str,
     port: int = 8080,
@@ -397,28 +479,46 @@ def run_interactive_session(
     console.print(f"[green]Preview server ready![/green]")
     console.print(f"[cyan]Browser:[/cyan] http://localhost:{port}")
 
-    # Phase 3: Launch Claude CLI
-    console.print(f"\n[cyan]Launching Claude Code...[/cyan]")
-    console.print(f"[dim]Session folder: {session_dir}[/dim]")
-    console.print(f"[dim]Press Ctrl+C or type /exit to end session[/dim]\n")
+    # Phase 3: Check tmux is available
+    if not check_tmux_installed():
+        console.print("[red]Error:[/red] tmux is required but not installed")
+        console.print("Install with: brew install tmux")
+        cleanup_server()
+        sys.exit(1)
 
-    # Change to session directory
-    os.chdir(session_dir)
-
-    # Build command
-    cmd = build_claude_command(session_dir, prompt, port, model)
-
-    # Use pty.spawn for interactive terminal passthrough
-    # This allows Claude CLI to have full terminal control
-    try:
-        exit_status = pty.spawn(cmd)
-    except FileNotFoundError:
+    # Check Claude CLI is available
+    if not shutil.which("claude"):
         console.print("[red]Error:[/red] 'claude' command not found. Is Claude Code CLI installed?")
         console.print("Install with: npm install -g @anthropic-ai/claude-code")
         cleanup_server()
         sys.exit(1)
 
-    # Claude exited - cleanup
+    # Phase 4: Launch Claude CLI in tmux
+    timestamp = session_dir.name.replace("session_", "")
+    tmux_session_name = f"mcc-{timestamp}"
+
+    console.print(f"\n[cyan]Launching Claude Code in tmux session...[/cyan]")
+    console.print(f"[dim]Session folder: {session_dir}[/dim]")
+    console.print(f"[dim]tmux session: {tmux_session_name}[/dim]")
+    console.print(f"[dim]Detach: Ctrl+B, D | Reattach: tmux attach -t {tmux_session_name}[/dim]\n")
+
+    # Build Claude command
+    cmd = build_claude_command(session_dir, prompt, port, model)
+
+    # Create tmux session with Claude CLI
+    if not create_tmux_session(tmux_session_name, cmd, session_dir):
+        console.print("[red]Error:[/red] Failed to create tmux session")
+        cleanup_server()
+        sys.exit(1)
+
+    # Attach to tmux session (blocks until detach or exit)
+    attach_tmux_session(tmux_session_name)
+
+    # After detach/exit - cleanup
+    # Kill tmux session if it's still running
+    if tmux_session_exists(tmux_session_name):
+        kill_tmux_session(tmux_session_name)
+
     cleanup_server()
 
     # Show session summary
