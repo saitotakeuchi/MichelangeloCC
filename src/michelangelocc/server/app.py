@@ -147,6 +147,26 @@ async def notify_model_change():
             pass
 
 
+_watch_enabled: bool = False
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start file watcher after event loop is running."""
+    global _watch_enabled
+    if _watch_enabled and _current_script_path:
+        from michelangelocc.server.watcher import start_watcher_with_loop
+        loop = asyncio.get_running_loop()
+        start_watcher_with_loop(_current_script_path, notify_model_change, loop)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop file watcher on shutdown."""
+    from michelangelocc.server.watcher import stop_watcher
+    stop_watcher()
+
+
 def run_preview_server(
     script_path: Path,
     port: int = 8080,
@@ -162,13 +182,9 @@ def run_preview_server(
         open_browser: Open browser automatically
         watch: Enable file watching for hot-reload
     """
-    global _current_script_path
+    global _current_script_path, _watch_enabled
     _current_script_path = Path(script_path).resolve()
-
-    if watch:
-        from michelangelocc.server.watcher import start_watcher
-
-        start_watcher(_current_script_path, notify_model_change)
+    _watch_enabled = watch
 
     if open_browser:
         import threading

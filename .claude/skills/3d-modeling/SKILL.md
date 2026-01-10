@@ -27,9 +27,12 @@ When running in an interactive session started with `mcc session`, you have a st
 - **Model file**: `model.py` - This is the main file to edit
 - **Preview**: Browser is already open at `http://localhost:8080` showing live preview
 - **Output folder**: `output/` - Place exported STL files here
+- **tmux session**: Running inside tmux (detach with `Ctrl+B, D`, reattach with `tmux attach`)
 
 ### How It Works
 The browser shows a **live 3D preview** of `model.py`. When you edit and save `model.py`, the viewer automatically reloads and displays the updated model. This enables rapid iteration without manual refresh.
+
+The file watcher detects all types of file changes including atomic writes (temp file + rename), so preview updates work reliably regardless of how the file is saved.
 
 ### Session Workflow
 1. **Read** the current `model.py` to understand the starting template

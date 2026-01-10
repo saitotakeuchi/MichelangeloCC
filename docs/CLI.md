@@ -12,11 +12,15 @@ mcc <command> <subcommand> --help  # Show help for a subcommand
 
 ## Installation
 
-After installing MichelangeloCC, the `mcc` command becomes available:
-
 ```bash
-pip install -e .
+pipx install michelangelocc
 mcc --help
+```
+
+For development:
+```bash
+git clone https://github.com/saitotakeuchi/MichelangeloCC.git
+cd MichelangeloCC && make install-dev
 ```
 
 ---
@@ -66,7 +70,12 @@ mcc session "<prompt>" [OPTIONS]
 2. Generates `model.py` from the selected template with your prompt
 3. Starts the preview server with hot-reload
 4. Opens browser to show live 3D preview
-5. Launches Claude Code CLI with full session context
+5. Creates a tmux session (named `mcc-<timestamp>`)
+6. Launches Claude Code CLI inside tmux with full session context
+
+**Requirements:**
+- tmux must be installed (`brew install tmux` on macOS)
+- Claude Code CLI must be installed (`npm install -g @anthropic-ai/claude-code`)
 
 **Session Folder Structure:**
 ```
@@ -95,6 +104,23 @@ mcc session "Design a gear with 24 teeth" --model opus
 - Ask Claude to modify the model iteratively
 - When finished, export: `mcc export stl model.py -o output/model.stl --quality high`
 - Press `Ctrl+C` or type `/exit` to end the session
+
+**tmux Session Management:**
+```bash
+# Detach from session (keeps it running)
+Ctrl+B, then D
+
+# List running sessions
+tmux list-sessions
+
+# Reattach to a session
+tmux attach -t mcc-20260110_143052
+
+# Kill a session manually
+tmux kill-session -t mcc-20260110_143052
+```
+
+**Note:** When you exit Claude (via `/exit` or `Ctrl+C`), both the tmux session and preview server are automatically cleaned up.
 
 **After the Session:**
 ```bash

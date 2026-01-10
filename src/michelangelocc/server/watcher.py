@@ -12,7 +12,7 @@ import threading
 import time
 
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileMovedEvent, FileCreatedEvent
 
 
 class ModelFileHandler(FileSystemEventHandler):
@@ -52,6 +52,33 @@ class ModelFileHandler(FileSystemEventHandler):
         if modified_path != self.watched_path:
             return
 
+        self._handle_file_change()
+
+    def on_moved(self, event):
+        """Handle file move events (for atomic writes via temp file + rename)."""
+        if event.is_directory:
+            return
+
+        # Check if the destination is our watched file (temp file renamed to target)
+        dest_path = Path(event.dest_path).resolve()
+        if dest_path != self.watched_path:
+            return
+
+        self._handle_file_change()
+
+    def on_created(self, event):
+        """Handle file creation events (in case file is recreated)."""
+        if event.is_directory:
+            return
+
+        created_path = Path(event.src_path).resolve()
+        if created_path != self.watched_path:
+            return
+
+        self._handle_file_change()
+
+    def _handle_file_change(self):
+        """Common handler for file changes (modified, moved, created)."""
         # Debounce rapid changes
         current_time = time.time()
         if current_time - self._last_trigger < self.debounce_seconds:
@@ -144,6 +171,37 @@ def start_watcher(
 
     _watcher = FileWatcher()
     _watcher.watch(path, callback)
+    _watcher.start()
+
+    print(f"Watching for changes: {path}")
+
+
+def start_watcher_with_loop(
+    path: Path,
+    callback: Callable[[], Awaitable[None]],
+    loop: asyncio.AbstractEventLoop,
+):
+    """
+    Start a file watcher for the given path with a specific event loop.
+
+    This ensures the async callback is scheduled on the correct event loop,
+    which is necessary when the watcher runs in a different thread (e.g.,
+    watchdog's observer thread) than uvicorn's main event loop.
+
+    Args:
+        path: Path to watch
+        callback: Async function to call on changes
+        loop: The event loop to schedule callbacks on
+    """
+    global _watcher
+
+    _watcher = FileWatcher()
+    _watcher.watch(path, callback)
+
+    # Set the event loop on all handlers before starting
+    for handler in _watcher._handlers:
+        handler.set_loop(loop)
+
     _watcher.start()
 
     print(f"Watching for changes: {path}")
