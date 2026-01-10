@@ -80,6 +80,25 @@ Claude will:
 | `mcc repair auto <stl>` | Auto-repair mesh issues |
 | `mcc info <input>` | Show model information |
 | `mcc new <name>` | Create new project from template |
+| `mcc help` | Show detailed help |
+| `mcc help <command>` | Show help for specific command |
+
+### Getting Help
+
+```bash
+# Show all commands
+mcc --help
+
+# Detailed help with examples
+mcc help
+
+# Help for specific commands
+mcc help export
+mcc help preview
+mcc export stl --help
+```
+
+See [docs/CLI.md](docs/CLI.md) for complete documentation.
 
 ### Export Quality Options
 

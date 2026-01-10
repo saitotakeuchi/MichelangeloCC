@@ -1,6 +1,9 @@
 """
 MichelangeloCC CLI - Command line interface for 3D model generation.
 
+A Claude Code-powered tool for generating 3D printable STL files from
+natural language descriptions using build123d CAD operations.
+
 Usage:
     mcc preview model <script>     Preview model in browser
     mcc export stl <script>        Export to STL format
@@ -8,6 +11,9 @@ Usage:
     mcc repair auto <stl>          Auto-repair mesh issues
     mcc info <input>               Show model information
     mcc new <name>                 Create new project from template
+    mcc help                       Show detailed help
+
+For detailed documentation, see: docs/CLI.md
 """
 
 import typer
@@ -20,15 +26,69 @@ import sys
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.markdown import Markdown
 from rich import print as rprint
 
 console = Console()
 
+# Custom help text
+HELP_TEXT = """
+# MichelangeloCC CLI
+
+**Claude Code-powered 3D model generator for STL files**
+
+## Commands
+
+### Preview
+- `mcc preview model <script>` - Preview model in browser with hot-reload
+- `mcc preview stl <file>` - Preview existing STL file
+
+### Export
+- `mcc export stl <script>` - Export model to STL format
+
+### Validate & Repair
+- `mcc validate mesh <input>` - Check mesh for 3D printing compatibility
+- `mcc repair auto <stl>` - Automatically fix mesh issues
+
+### Project Management
+- `mcc new <name>` - Create new project from template
+- `mcc info <input>` - Display model information
+
+### Other
+- `mcc version` - Show version
+- `mcc help` - Show this help
+
+## Quick Start
+
+```bash
+# Create a new project
+mcc new my_part --template mechanical
+
+# Preview it
+cd my_part
+mcc preview model my_part.py
+
+# Export when ready
+mcc export stl my_part.py -o my_part.stl --quality high
+```
+
+## Getting Help
+
+Use `--help` with any command for detailed options:
+```bash
+mcc export stl --help
+mcc validate mesh --help
+```
+
+Full documentation: docs/CLI.md
+"""
+
 app = typer.Typer(
     name="mcc",
-    help="MichelangeloCC - Claude Code 3D Model Generator",
+    help="MichelangeloCC - Claude Code 3D Model Generator. Use 'mcc help' for detailed usage.",
     add_completion=True,
     no_args_is_help=True,
+    rich_markup_mode="rich",
 )
 
 
@@ -647,6 +707,124 @@ def version():
     """Show MichelangeloCC version."""
     from michelangelocc import __version__
     console.print(f"MichelangeloCC v{__version__}")
+
+
+# === HELP COMMAND ===
+
+@app.command("help")
+def help_command(
+    command: Optional[str] = typer.Argument(None, help="Command to get help for"),
+):
+    """
+    Show detailed help information.
+
+    Examples:
+        mcc help              Show overview
+        mcc help export       Show export commands
+        mcc help preview      Show preview commands
+    """
+    if command is None:
+        # Show general help
+        console.print(Markdown(HELP_TEXT))
+    elif command == "preview":
+        console.print(Panel.fit(
+            "[bold cyan]Preview Commands[/bold cyan]\n\n"
+            "[bold]mcc preview model <script>[/bold]\n"
+            "  Preview a Python script model in the browser.\n"
+            "  Options:\n"
+            "    -p, --port INT      Server port (default: 8080)\n"
+            "    --no-browser        Don't open browser automatically\n"
+            "    --no-watch          Disable hot-reload\n\n"
+            "[bold]mcc preview stl <file>[/bold]\n"
+            "  Preview an existing STL file.\n"
+            "  Options:\n"
+            "    -p, --port INT      Server port (default: 8080)\n",
+            title="Preview Help"
+        ))
+    elif command == "export":
+        console.print(Panel.fit(
+            "[bold cyan]Export Commands[/bold cyan]\n\n"
+            "[bold]mcc export stl <script>[/bold]\n"
+            "  Export a model to STL format.\n"
+            "  Options:\n"
+            "    -o, --output PATH   Output file path\n"
+            "    -q, --quality ENUM  Quality: draft, standard, high, ultra\n"
+            "    --binary/--ascii    File format (default: binary)\n"
+            "    --no-validate       Skip validation\n"
+            "    --no-repair         Skip auto-repair\n\n"
+            "[bold]Quality Presets:[/bold]\n"
+            "    draft    - 0.1mm tolerance (fast)\n"
+            "    standard - 0.01mm tolerance (default)\n"
+            "    high     - 0.001mm tolerance (detailed)\n"
+            "    ultra    - 0.0001mm tolerance (maximum)\n",
+            title="Export Help"
+        ))
+    elif command == "validate":
+        console.print(Panel.fit(
+            "[bold cyan]Validate Commands[/bold cyan]\n\n"
+            "[bold]mcc validate mesh <input>[/bold]\n"
+            "  Validate mesh for 3D printing compatibility.\n"
+            "  Options:\n"
+            "    -v, --verbose       Show detailed output\n"
+            "    --json              Output as JSON\n\n"
+            "[bold]Checks Performed:[/bold]\n"
+            "    - Watertight (manifold) mesh\n"
+            "    - Consistent face normals\n"
+            "    - No degenerate triangles\n"
+            "    - Volume and dimension sanity\n"
+            "    - Printability recommendations\n",
+            title="Validate Help"
+        ))
+    elif command == "repair":
+        console.print(Panel.fit(
+            "[bold cyan]Repair Commands[/bold cyan]\n\n"
+            "[bold]mcc repair auto <stl>[/bold]\n"
+            "  Automatically repair mesh issues.\n"
+            "  Options:\n"
+            "    -o, --output PATH   Output file path\n"
+            "    --aggressive        Use PyMeshFix (severe issues)\n\n"
+            "[bold]Standard Repairs:[/bold]\n"
+            "    - Merge duplicate vertices\n"
+            "    - Remove degenerate faces\n"
+            "    - Fix face normals\n"
+            "    - Fill holes\n\n"
+            "[bold]Aggressive Mode:[/bold]\n"
+            "    Uses PyMeshFix for comprehensive repair.\n"
+            "    Best for severely damaged meshes.\n",
+            title="Repair Help"
+        ))
+    elif command == "new":
+        console.print(Panel.fit(
+            "[bold cyan]New Project Command[/bold cyan]\n\n"
+            "[bold]mcc new <name>[/bold]\n"
+            "  Create a new project from template.\n"
+            "  Options:\n"
+            "    -t, --template ENUM  Template type\n\n"
+            "[bold]Templates:[/bold]\n"
+            "    basic       - Simple box model\n"
+            "    mechanical  - Bracket with mounting holes\n"
+            "    organic     - Twisted vase shape\n"
+            "    parametric  - Ring with configurable slots\n",
+            title="New Project Help"
+        ))
+    elif command == "info":
+        console.print(Panel.fit(
+            "[bold cyan]Info Command[/bold cyan]\n\n"
+            "[bold]mcc info <input>[/bold]\n"
+            "  Display model information.\n\n"
+            "[bold]Output:[/bold]\n"
+            "    - Model name\n"
+            "    - Dimensions (X x Y x Z)\n"
+            "    - Volume\n"
+            "    - Surface area\n"
+            "    - Triangle/vertex count\n"
+            "    - Watertight status\n",
+            title="Info Help"
+        ))
+    else:
+        console.print(f"[yellow]Unknown command:[/yellow] {command}")
+        console.print("Available: preview, export, validate, repair, new, info")
+        console.print("\nRun [cyan]mcc help[/cyan] for full help.")
 
 
 if __name__ == "__main__":
