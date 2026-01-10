@@ -25,6 +25,7 @@ mcc --help
 
 | Command | Description |
 |---------|-------------|
+| `mcc session` | **Start interactive session with Claude Code** |
 | `mcc preview` | Preview models in browser |
 | `mcc export` | Export models to various formats |
 | `mcc validate` | Validate mesh integrity |
@@ -33,6 +34,77 @@ mcc --help
 | `mcc new` | Create new project from template |
 | `mcc version` | Show version |
 | `mcc help` | Show help information |
+
+---
+
+## Session Command
+
+### `mcc session`
+
+Start an interactive 3D modeling session with Claude Code. This is the **recommended way** to use MichelangeloCC for iterative design.
+
+```bash
+mcc session "<prompt>" [OPTIONS]
+```
+
+**Arguments:**
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `prompt` | TEXT | Yes | Natural language description of the model to create |
+
+**Options:**
+| Option | Short | Type | Default | Description |
+|--------|-------|------|---------|-------------|
+| `--port` | `-p` | INT | 8080 | Preview server port |
+| `--no-browser` | | FLAG | False | Don't open browser automatically |
+| `--template` | `-t` | ENUM | `basic` | Initial template: `basic`, `mechanical`, `organic`, `parametric` |
+| `--model` | `-m` | TEXT | None | Claude model override (e.g., `sonnet`, `opus`) |
+| `--help` | | FLAG | | Show help message |
+
+**What Happens:**
+1. Creates a timestamped session folder (e.g., `session_20260110_143052/`)
+2. Generates `model.py` from the selected template with your prompt
+3. Starts the preview server with hot-reload
+4. Opens browser to show live 3D preview
+5. Launches Claude Code CLI with full session context
+
+**Session Folder Structure:**
+```
+session_20260110_143052/
+├── model.py              # Main model script (edit this)
+└── output/               # Folder for exported STL files
+```
+
+**Examples:**
+```bash
+# Basic session
+mcc session "Create a simple phone stand"
+
+# Mechanical part with template
+mcc session "Design a mounting bracket with 4 M5 holes" --template mechanical
+
+# Organic shape on custom port
+mcc session "Create a decorative vase" -t organic -p 3000
+
+# Use specific Claude model
+mcc session "Design a gear with 24 teeth" --model opus
+```
+
+**During the Session:**
+- Edit `model.py` and the browser preview updates automatically
+- Ask Claude to modify the model iteratively
+- When finished, export: `mcc export stl model.py -o output/model.stl --quality high`
+- Press `Ctrl+C` or type `/exit` to end the session
+
+**After the Session:**
+```bash
+# Continue working on the model later
+cd session_20260110_143052
+mcc preview model model.py
+
+# Export the final STL
+mcc export stl model.py -o output/model.stl --quality high
+```
 
 ---
 
@@ -416,7 +488,25 @@ mcc validate mesh --help
 
 ## Common Workflows
 
-### Generate and Export
+### Interactive Session (Recommended)
+
+```bash
+# 1. Start a session with Claude Code
+mcc session "Create a parametric gear with 20 teeth and 8mm shaft hole" --template mechanical
+
+# 2. Claude and browser work together:
+#    - Claude edits model.py based on your feedback
+#    - Browser shows live preview updates automatically
+#    - Iterate until you're happy with the design
+
+# 3. Export when finished (from within the session)
+mcc export stl model.py -o output/gear.stl --quality high
+
+# 4. Session ends with Ctrl+C or /exit
+#    Your work is saved in the session folder!
+```
+
+### Generate and Export (Manual)
 
 ```bash
 # 1. Create a new project

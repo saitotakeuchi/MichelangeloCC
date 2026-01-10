@@ -5,6 +5,7 @@ A Claude Code-powered tool for generating 3D printable STL files from
 natural language descriptions using build123d CAD operations.
 
 Usage:
+    mcc session "<prompt>"         Start interactive session with Claude Code
     mcc preview model <script>     Preview model in browser
     mcc export stl <script>        Export to STL format
     mcc validate mesh <input>      Validate mesh integrity
@@ -37,7 +38,24 @@ HELP_TEXT = """
 
 **Claude Code-powered 3D model generator for STL files**
 
+## Quick Start - Interactive Session
+
+The easiest way to create 3D models:
+
+```bash
+mcc session "Create a parametric gear with 20 teeth"
+```
+
+This starts an interactive session where:
+1. A session folder is created with model.py
+2. Browser opens with live 3D preview
+3. Claude Code launches to help you design
+4. Changes update the preview automatically!
+
 ## Commands
+
+### Interactive Session (Recommended)
+- `mcc session "<prompt>"` - Start interactive modeling session with Claude Code
 
 ### Preview
 - `mcc preview model <script>` - Preview model in browser with hot-reload
@@ -57,27 +75,14 @@ HELP_TEXT = """
 ### Other
 - `mcc version` - Show version
 - `mcc help` - Show this help
-
-## Quick Start
-
-```bash
-# Create a new project
-mcc new my_part --template mechanical
-
-# Preview it
-cd my_part
-mcc preview model my_part.py
-
-# Export when ready
-mcc export stl my_part.py -o my_part.stl --quality high
-```
+- `mcc help <command>` - Help for specific command
 
 ## Getting Help
 
 Use `--help` with any command for detailed options:
 ```bash
+mcc session --help
 mcc export stl --help
-mcc validate mesh --help
 ```
 
 Full documentation: docs/CLI.md
@@ -700,6 +705,45 @@ model = MichelangeloModel(
     return templates.get(template, templates["basic"])
 
 
+# === SESSION COMMAND ===
+
+@app.command("session")
+def session_command(
+    prompt: str = typer.Argument(..., help="Natural language description of the model to create"),
+    port: int = typer.Option(8080, "--port", "-p", help="Preview server port"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't open browser automatically"),
+    template: TemplateOption = typer.Option(
+        TemplateOption.basic,
+        "--template", "-t",
+        help="Initial template: basic, mechanical, organic, parametric"
+    ),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Claude model override (e.g., sonnet, opus)"),
+):
+    """
+    Start an interactive 3D modeling session with Claude Code.
+
+    Creates a session folder, starts the preview server with hot-reload,
+    and launches Claude Code with the 3D modeling skill context.
+
+    The browser shows a live preview that updates automatically when
+    Claude edits the model file.
+
+    Examples:
+        mcc session "Create a parametric gear with 20 teeth"
+        mcc session "Design a phone stand" --template mechanical
+        mcc session "Build a vase" -t organic --port 9000
+    """
+    from michelangelocc.session import run_interactive_session
+
+    run_interactive_session(
+        prompt=prompt,
+        port=port,
+        open_browser=not no_browser,
+        template=template.value,
+        model=model,
+    )
+
+
 # === VERSION COMMAND ===
 
 @app.command("version")
@@ -821,9 +865,34 @@ def help_command(
             "    - Watertight status\n",
             title="Info Help"
         ))
+    elif command == "session":
+        console.print(Panel.fit(
+            "[bold cyan]Session Command[/bold cyan]\n\n"
+            "[bold]mcc session \"<prompt>\"[/bold]\n"
+            "  Start an interactive 3D modeling session.\n"
+            "  Options:\n"
+            "    -p, --port INT       Server port (default: 8080)\n"
+            "    --no-browser         Don't open browser automatically\n"
+            "    -t, --template ENUM  Initial template type\n"
+            "    -m, --model TEXT     Claude model override\n\n"
+            "[bold]What Happens:[/bold]\n"
+            "    1. Creates session_<timestamp>/ folder\n"
+            "    2. Starts preview server with hot-reload\n"
+            "    3. Opens browser with 3D viewer\n"
+            "    4. Launches Claude Code with context\n\n"
+            "[bold]Templates:[/bold]\n"
+            "    basic       - Simple starting point\n"
+            "    mechanical  - Bracket with mounting holes\n"
+            "    organic     - Twisted vase shape\n"
+            "    parametric  - Configurable ring\n\n"
+            "[bold]Example:[/bold]\n"
+            "    mcc session \"Create a gear with 20 teeth\"\n"
+            "    mcc session \"Design phone stand\" -t mechanical\n",
+            title="Session Help"
+        ))
     else:
         console.print(f"[yellow]Unknown command:[/yellow] {command}")
-        console.print("Available: preview, export, validate, repair, new, info")
+        console.print("Available: session, preview, export, validate, repair, new, info")
         console.print("\nRun [cyan]mcc help[/cyan] for full help.")
 
 

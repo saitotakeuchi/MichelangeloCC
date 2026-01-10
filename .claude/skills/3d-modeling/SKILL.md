@@ -18,6 +18,45 @@ When the user asks you to create a 3D model:
 5. **Validate** - Run `mcc validate mesh <script.py>` to check printability
 6. **Export** - Run `mcc export stl <script.py> -o <output.stl>` when ready
 
+## Interactive Session Mode
+
+When running in an interactive session started with `mcc session`, you have a streamlined workflow:
+
+### Session Context
+- **Working directory**: The session folder (e.g., `session_20260110_143052/`)
+- **Model file**: `model.py` - This is the main file to edit
+- **Preview**: Browser is already open at `http://localhost:8080` showing live preview
+- **Output folder**: `output/` - Place exported STL files here
+
+### How It Works
+The browser shows a **live 3D preview** of `model.py`. When you edit and save `model.py`, the viewer automatically reloads and displays the updated model. This enables rapid iteration without manual refresh.
+
+### Session Workflow
+1. **Read** the current `model.py` to understand the starting template
+2. **Modify** `model.py` based on the user's request
+3. **Wait** - The browser automatically shows the updated model
+4. **Ask** the user for feedback and iterate
+5. **Export** when satisfied: `mcc export stl model.py -o output/model.stl --quality high`
+
+### Best Practices in Session Mode
+- Make **small, incremental changes** - easier to debug if something goes wrong
+- Keep **parameters at the top** of the file for easy adjustment
+- Use the **existing model.py structure** - don't create new files unless necessary
+- Check the browser preview after each change before asking for feedback
+- When finished, always export to `output/` folder with high quality
+
+### Session Commands
+```bash
+# Export final model (run from session folder)
+mcc export stl model.py -o output/model.stl --quality high
+
+# Validate before export
+mcc validate mesh model.py --verbose
+
+# Get model info
+mcc info model.py
+```
+
 ## Model Script Structure
 
 Always create Python scripts following this pattern:
