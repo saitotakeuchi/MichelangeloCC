@@ -47,6 +47,9 @@ htmlcov/
 *.stp
 output/
 
+# Session folders
+session_*/
+
 # OS
 .DS_Store
 Thumbs.db
