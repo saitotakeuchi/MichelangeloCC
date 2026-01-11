@@ -122,11 +122,41 @@ part1 - part2      # Subtraction (cut)
 part1 & part2      # Intersection
 ```
 
-### Positioning
+### Positioning and Rotation
 ```python
 Pos(x, y, z) * shape       # Translate
 Rot(x, y, z) * shape       # Rotate (degrees around each axis)
 Pos(10, 0, 0) * Rot(0, 0, 45) * Box(5, 5, 5)  # Combined
+```
+
+### Scaling (Non-Uniform)
+```python
+# Use the scale() FUNCTION - NOT a Scale() class with * operator
+scaled = scale(Sphere(10), by=(1, 0.5, 0.5))  # Scale Y and Z to 50%
+
+# Uniform scaling
+scaled = scale(Box(10, 10, 10), by=2)  # Double size in all directions
+
+# In BuildPart mode:
+with BuildPart() as bp:
+    Sphere(10)
+    scale(by=(1.5, 1, 0.8))  # Scale current part in place
+part = bp.part
+
+# Combined with positioning:
+part = Pos(0, 0, 5) * scale(Sphere(10), by=(1, 0.5, 0.5))
+```
+
+### Mirroring
+```python
+# Use the mirror() FUNCTION - NOT a Mirror() class
+mirrored = mirror(Box(10, 10, 10), about=Plane.XZ)  # Mirror about XZ plane
+
+# In BuildPart mode (adds mirrored copy):
+with BuildPart() as bp:
+    Box(10, 10, 10)
+    mirror(about=Plane.YZ)  # Creates symmetric part
+part = bp.part
 ```
 
 ### Edge Operations
@@ -297,6 +327,52 @@ mcc repair auto ./broken.stl -o ./fixed.stl
 | standard | 0.01mm | Most 3D printing |
 | high | 0.001mm | Fine detail, small parts |
 | ultra | 0.0001mm | Maximum precision |
+
+## Common Mistakes to Avoid
+
+### Invalid Transformation Operators
+
+**CRITICAL**: These transformation classes DO NOT exist as `*` operators:
+
+```python
+# WRONG - These will cause "Error loading model"
+Scale(1, 0.5, 0.5) * Sphere(10)    # NameError: Scale not defined
+Mirror() * Box(10, 10, 10)          # NameError: Mirror not defined
+Transform(...) * shape              # Not available
+```
+
+**ONLY these work with the `*` operator:**
+```python
+Pos(x, y, z) * shape       # Translation - VALID
+Rot(x, y, z) * shape       # Rotation - VALID
+Pos() * Rot() * shape      # Combined - VALID
+```
+
+**For scaling and mirroring, use FUNCTIONS:**
+```python
+scale(shape, by=(x, y, z))         # Correct way to scale
+mirror(shape, about=Plane.XZ)      # Correct way to mirror
+```
+
+### Testing Incrementally
+
+Build models step by step to catch errors early:
+
+1. **Create basic shape** → save → check preview works
+2. **Add one transformation** → save → verify no errors
+3. **Add boolean operations** → save → check geometry
+4. **Add details** → save → validate before export
+
+If the preview shows "Error loading model", check the terminal for the actual Python error.
+
+### Reference Working Examples
+
+Before using new patterns, check `.claude/skills/3d-modeling/examples/`:
+- `gear.py` - Complex parametric design with sketches
+- `bracket.py` - Mechanical part with holes and fillets
+- `vase.py` - Organic loft shapes with multiple profiles
+
+These examples are tested and working - copy patterns from them.
 
 ## Error Handling
 
