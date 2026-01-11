@@ -156,29 +156,56 @@ class TestSTLExporter:
         assert result.success is True
         assert result.validation_result is None
 
-    def test_export_to_bytes(self, exporter, sample_mesh):
+    def test_export_to_bytes(self, exporter):
         """Export to bytes should return STL data."""
+        from build123d import Box
+        from michelangelocc import MichelangeloModel, ModelMetadata
+
+        part = Box(10, 10, 10)
+        model = MichelangeloModel(
+            part=part,
+            metadata=ModelMetadata(name="test", description="test")
+        )
+
         stl_bytes = exporter.export_to_bytes(
-            sample_mesh,
+            model,
             ExportSettings(format=STLFormat.BINARY)
         )
 
         assert stl_bytes is not None
         assert len(stl_bytes) > 0
 
-    def test_export_to_bytes_ascii(self, exporter, sample_mesh):
+    def test_export_to_bytes_ascii(self, exporter):
         """Export to bytes in ASCII format."""
+        from build123d import Box
+        from michelangelocc import MichelangeloModel, ModelMetadata
+
+        part = Box(10, 10, 10)
+        model = MichelangeloModel(
+            part=part,
+            metadata=ModelMetadata(name="test", description="test")
+        )
+
         stl_bytes = exporter.export_to_bytes(
-            sample_mesh,
+            model,
             ExportSettings(format=STLFormat.ASCII)
         )
 
         assert stl_bytes is not None
         assert b"solid" in stl_bytes.lower()
 
-    def test_estimate_file_size(self, exporter, sample_mesh):
+    def test_estimate_file_size(self, exporter):
         """Estimate file size should give reasonable estimate."""
-        estimate = exporter.estimate_file_size(sample_mesh)
+        from build123d import Box
+        from michelangelocc import MichelangeloModel, ModelMetadata
+
+        part = Box(10, 10, 10)
+        model = MichelangeloModel(
+            part=part,
+            metadata=ModelMetadata(name="test", description="test")
+        )
+
+        estimate = exporter.estimate_file_size(model)
 
         assert estimate > 0
 
@@ -227,7 +254,7 @@ class TestExportResult:
 
         result = ExportResult(
             success=True,
-            output_path=temp_dir / "test.stl",
+            file_path=temp_dir / "test.stl",
             file_size_bytes=1000,
             triangle_count=12,
             validation_result=ValidationResult(
@@ -236,7 +263,11 @@ class TestExportResult:
                 is_printable=True,
                 triangle_count=12,
                 vertex_count=8,
+                volume=1000.0,
+                surface_area=600.0,
+                bounding_box=((0, 0, 0), (10, 10, 10)),
             ),
+            repair_result=None,
         )
 
         summary = result.summary()
@@ -248,7 +279,11 @@ class TestExportResult:
 
         result = ExportResult(
             success=False,
-            output_path=temp_dir / "test.stl",
+            file_path=None,
+            file_size_bytes=0,
+            triangle_count=0,
+            validation_result=None,
+            repair_result=None,
             error_message="Test error",
         )
 
