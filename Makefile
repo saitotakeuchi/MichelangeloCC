@@ -3,7 +3,7 @@
 # Common development and installation tasks
 #
 
-.PHONY: help install install-dev install-uv uninstall venv test lint typecheck check clean clean-all
+.PHONY: help install install-dev install-uv uninstall venv test test-cov test-cov-check lint typecheck check clean clean-all
 
 # Configuration
 PYTHON := python3
@@ -23,6 +23,8 @@ help:
 	@echo "Development:"
 	@echo "  make venv          Create virtual environment"
 	@echo "  make test          Run tests"
+	@echo "  make test-cov      Run tests with coverage report"
+	@echo "  make test-cov-check  Run tests and fail if coverage < 80%"
 	@echo "  make lint          Run linting (ruff)"
 	@echo "  make typecheck     Run type checking (mypy)"
 	@echo "  make check         Run all checks (lint + typecheck + test)"
@@ -100,6 +102,16 @@ test: venv
 	else \
 		echo "No tests directory found"; \
 	fi
+
+# Run tests with coverage report
+test-cov: venv
+	$(BIN)/pytest tests/ -v --cov=michelangelocc --cov-report=term-missing --cov-report=html
+	@echo ""
+	@echo "HTML coverage report: htmlcov/index.html"
+
+# Run tests and fail if coverage < 80%
+test-cov-check: venv
+	$(BIN)/pytest tests/ --cov=michelangelocc --cov-fail-under=80
 
 # Run linting
 lint: venv

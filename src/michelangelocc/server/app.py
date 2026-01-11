@@ -26,6 +26,38 @@ _model_info_cache: Optional[dict] = None
 app = FastAPI(title="MichelangeloCC Viewer")
 
 
+def _validate_stl_bytes(stl_bytes: bytes) -> Optional[str]:
+    """
+    Validate STL bytes and return a warning message if issues found.
+
+    Returns:
+        Warning message string if issues found, None otherwise.
+    """
+    try:
+        import io
+        import trimesh
+        from michelangelocc.core.validator import MeshValidator
+
+        # Load mesh from bytes
+        mesh = trimesh.load(io.BytesIO(stl_bytes), file_type="stl")
+
+        # Run validation
+        validator = MeshValidator()
+        result = validator.validate(mesh)
+
+        # Collect error-level issues
+        errors = [i for i in result.issues if i.severity.value == "error"]
+
+        if errors:
+            # Return first error message (most important)
+            return errors[0].message
+
+        return None
+    except Exception:
+        # If validation fails, don't block the preview
+        return None
+
+
 @app.get("/")
 async def viewer_page():
     """Serve the Three.js viewer HTML."""
@@ -37,10 +69,22 @@ async def get_model_stl():
     """Generate and serve current model as STL."""
     global _model_cache
 
+    headers = {}
+
     if _current_stl_path and _current_stl_path.exists():
         # Serve static STL file
         content = _current_stl_path.read_bytes()
-        return Response(content=content, media_type="application/octet-stream")
+
+        # Validate the STL
+        warning = _validate_stl_bytes(content)
+        if warning:
+            headers["X-Validation-Warning"] = warning
+
+        return Response(
+            content=content,
+            media_type="application/octet-stream",
+            headers=headers,
+        )
 
     if _current_script_path and _current_script_path.exists():
         try:
@@ -55,7 +99,16 @@ async def get_model_stl():
             global _model_info_cache
             _model_info_cache = model.info()
 
-            return Response(content=stl_bytes, media_type="application/octet-stream")
+            # Validate the generated STL
+            warning = _validate_stl_bytes(stl_bytes)
+            if warning:
+                headers["X-Validation-Warning"] = warning
+
+            return Response(
+                content=stl_bytes,
+                media_type="application/octet-stream",
+                headers=headers,
+            )
         except Exception as e:
             return JSONResponse(
                 status_code=500,
@@ -128,7 +181,14 @@ async def websocket_endpoint(websocket: WebSocket):
             # Echo back for ping/pong
             await websocket.send_text(data)
     except WebSocketDisconnect:
-        _websocket_clients.remove(websocket)
+        pass
+    except Exception:
+        # Handle unexpected errors (connection reset, etc.)
+        pass
+    finally:
+        # Always cleanup client from list
+        if websocket in _websocket_clients:
+            _websocket_clients.remove(websocket)
 
 
 async def notify_model_change():
@@ -294,9 +354,48 @@ VIEWER_HTML = """
         }
         .watertight-yes { color: #2ecc71 !important; }
         .watertight-no { color: #e74c3c !important; }
+        #warning-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #e74c3c;
+            color: #fff;
+            padding: 12px 20px;
+            text-align: center;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        #warning-banner.visible { display: block; }
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+        #warning-banner .warning-icon { margin-right: 8px; }
+        #warning-banner .close-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+        #warning-banner .close-btn:hover { opacity: 1; }
     </style>
 </head>
 <body>
+    <div id="warning-banner">
+        <span class="warning-icon">&#9888;</span>
+        <span id="warning-message"></span>
+        <button class="close-btn" onclick="hideWarning()">&times;</button>
+    </div>
+
     <div id="viewer-container"></div>
 
     <div id="loading">Loading model...</div>
@@ -343,6 +442,19 @@ VIEWER_HTML = """
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+        // Warning banner functions (global scope for onclick)
+        window.showWarning = function(message) {
+            const banner = document.getElementById('warning-banner');
+            const msgEl = document.getElementById('warning-message');
+            msgEl.textContent = message;
+            banner.classList.add('visible');
+        };
+
+        window.hideWarning = function() {
+            const banner = document.getElementById('warning-banner');
+            banner.classList.remove('visible');
+        };
 
         class MichelangeloViewer {
             constructor(container) {
@@ -440,12 +552,25 @@ VIEWER_HTML = """
                         throw new Error('Failed to load model');
                     }
 
+                    // Check for validation warnings
+                    const warning = response.headers.get('X-Validation-Warning');
+                    if (warning) {
+                        showWarning(warning);
+                    } else {
+                        hideWarning();
+                    }
+
                     const arrayBuffer = await response.arrayBuffer();
                     const geometry = loader.parse(arrayBuffer);
 
-                    // Remove old mesh
+                    // Compute vertex normals for proper lighting (STL doesn't have them)
+                    geometry.computeVertexNormals();
+
+                    // Remove old mesh and dispose resources to prevent memory leak
                     if (this.currentMesh) {
                         this.scene.remove(this.currentMesh);
+                        this.currentMesh.geometry.dispose();
+                        this.currentMesh.material.dispose();
                     }
 
                     // Create material

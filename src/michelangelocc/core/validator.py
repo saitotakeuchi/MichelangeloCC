@@ -181,6 +181,10 @@ class MeshValidator:
         printability_issues = self._check_printability(mesh, volume)
         issues.extend(printability_issues)
 
+        # Check for disconnected components (floating parts)
+        component_issues = self._check_connected_components(mesh)
+        issues.extend(component_issues)
+
         # Determine overall validity
         has_errors = any(i.severity == ValidationSeverity.ERROR for i in issues)
         is_valid = not has_errors
@@ -304,6 +308,45 @@ class MeshValidator:
                         details={"avg_thickness": float(avg_thickness)},
                     )
                 )
+
+        return issues
+
+    def _check_connected_components(
+        self, mesh: trimesh.Trimesh
+    ) -> List[ValidationIssue]:
+        """Check for disconnected/floating parts in the mesh."""
+        issues = []
+
+        try:
+            # Split mesh into connected components
+            components = mesh.split(only_watertight=False)
+
+            if len(components) > 1:
+                # Calculate volumes for each component
+                volumes = []
+                for comp in components:
+                    try:
+                        vol = abs(comp.volume) if comp.is_watertight else comp.area
+                    except Exception:
+                        vol = comp.area
+                    volumes.append(vol)
+
+                volumes_sorted = sorted(volumes, reverse=True)
+
+                issues.append(
+                    ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="DISCONNECTED_PARTS",
+                        message=f"Mesh has {len(components)} disconnected parts (floating geometry)",
+                        details={
+                            "component_count": len(components),
+                            "volumes_mm3": [round(v, 2) for v in volumes_sorted[:5]],
+                        },
+                    )
+                )
+        except Exception:
+            # If split fails, we can't check for disconnected parts
+            pass
 
         return issues
 

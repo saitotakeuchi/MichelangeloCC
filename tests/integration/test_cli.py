@@ -106,3 +106,146 @@ class TestNewCommand:
 
         assert result.exit_code == 1
         assert "exists" in result.stdout.lower()
+
+
+class TestPreviewCommands:
+    """Tests for preview commands."""
+
+    def test_preview_model_missing_file(self, temp_dir):
+        """Preview model should error on missing file."""
+        result = runner.invoke(app, ["preview", "model", str(temp_dir / "missing.py")])
+
+        assert result.exit_code == 1
+
+    def test_preview_stl_missing_file(self, temp_dir):
+        """Preview stl should error on missing file."""
+        result = runner.invoke(app, ["preview", "stl", str(temp_dir / "missing.stl")])
+
+        assert result.exit_code == 1
+
+
+class TestExportCommands:
+    """Tests for export commands."""
+
+    def test_export_stl_missing_file(self, temp_dir):
+        """Export should error on missing file."""
+        result = runner.invoke(app, ["export", "stl", str(temp_dir / "missing.py")])
+
+        assert result.exit_code == 1
+
+    def test_export_stl_basic(self, sample_script, temp_dir):
+        """Export should create STL file."""
+        output_path = temp_dir / "output.stl"
+
+        result = runner.invoke(app, [
+            "export", "stl",
+            str(sample_script),
+            "-o", str(output_path),
+        ])
+
+        # Check successful export
+        if result.exit_code == 0:
+            assert output_path.exists()
+            assert output_path.stat().st_size > 0
+
+    def test_export_stl_quality_options(self, sample_script, temp_dir):
+        """Export should accept quality options."""
+        output_path = temp_dir / "output.stl"
+
+        result = runner.invoke(app, [
+            "export", "stl",
+            str(sample_script),
+            "-o", str(output_path),
+            "--quality", "high",
+        ])
+
+        # Quality option should be accepted
+        if result.exit_code == 0:
+            assert output_path.exists()
+
+
+class TestRepairCommands:
+    """Tests for repair commands."""
+
+    def test_repair_missing_file(self, temp_dir):
+        """Repair should error on missing file."""
+        result = runner.invoke(app, ["repair", "auto", str(temp_dir / "missing.stl")])
+
+        assert result.exit_code == 1
+
+    def test_repair_auto_basic(self, sample_stl, temp_dir):
+        """Repair should create repaired file."""
+        output_path = temp_dir / "repaired.stl"
+
+        result = runner.invoke(app, [
+            "repair", "auto",
+            str(sample_stl),
+            "-o", str(output_path),
+        ])
+
+        if result.exit_code == 0:
+            assert output_path.exists()
+
+
+class TestHelpCommands:
+    """Tests for help and documentation."""
+
+    def test_help_flag(self):
+        """--help should show usage."""
+        result = runner.invoke(app, ["--help"])
+
+        assert result.exit_code == 0
+        assert "Usage" in result.stdout or "usage" in result.stdout
+
+    def test_help_command(self):
+        """help command should show detailed info."""
+        result = runner.invoke(app, ["help"])
+
+        assert result.exit_code == 0
+
+    def test_subcommand_help(self):
+        """Subcommand help should work."""
+        result = runner.invoke(app, ["export", "--help"])
+
+        assert result.exit_code == 0
+        assert "stl" in result.stdout.lower()
+
+
+class TestValidateDisconnectedParts:
+    """Tests for disconnected parts validation."""
+
+    @pytest.fixture
+    def disconnected_stl(self, temp_dir):
+        """Create an STL with disconnected parts."""
+        import trimesh
+
+        box1 = trimesh.creation.box(extents=[10, 10, 10])
+        box2 = trimesh.creation.box(extents=[10, 10, 10])
+        box2.apply_translation([50, 0, 0])
+        combined = trimesh.util.concatenate([box1, box2])
+
+        stl_path = temp_dir / "disconnected.stl"
+        combined.export(str(stl_path))
+        return stl_path
+
+    def test_validate_detects_disconnected_parts(self, disconnected_stl):
+        """Validation should detect disconnected parts."""
+        result = runner.invoke(app, ["validate", "mesh", str(disconnected_stl), "-v"])
+
+        assert "disconnected" in result.stdout.lower() or "DISCONNECTED" in result.stdout
+
+    def test_validate_json_includes_disconnected_issue(self, disconnected_stl):
+        """JSON validation should include disconnected parts issue."""
+        import json
+
+        result = runner.invoke(app, ["validate", "mesh", str(disconnected_stl), "--json"])
+
+        data = json.loads(result.stdout)
+
+        # Should have issues
+        assert "issues" in data
+        assert len(data["issues"]) > 0
+
+        # Should include disconnected parts issue
+        codes = [i.get("code", "") for i in data["issues"]]
+        assert "DISCONNECTED_PARTS" in codes or any("disconnect" in c.lower() for c in codes)

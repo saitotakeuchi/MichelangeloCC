@@ -87,3 +87,77 @@ class TestMeshValidator:
         assert result.warning_count >= 0
         assert len(result.issues) == result.error_count + result.warning_count + \
                sum(1 for i in result.issues if i.severity == ValidationSeverity.INFO)
+
+
+class TestCheckConnectedComponents:
+    """Tests for disconnected parts detection."""
+
+    @pytest.fixture
+    def validator(self):
+        """Create a MeshValidator instance."""
+        return MeshValidator()
+
+    @pytest.fixture
+    def single_component_mesh(self):
+        """Create a single connected mesh."""
+        return trimesh.creation.box(extents=[10, 10, 10])
+
+    @pytest.fixture
+    def disconnected_mesh(self):
+        """Create a mesh with two separate cubes."""
+        box1 = trimesh.creation.box(extents=[10, 10, 10])
+        box2 = trimesh.creation.box(extents=[10, 10, 10])
+        box2.apply_translation([50, 0, 0])  # Move far away
+        return trimesh.util.concatenate([box1, box2])
+
+    def test_single_component_passes(self, validator, single_component_mesh):
+        """Single connected mesh should pass."""
+        result = validator.validate(single_component_mesh)
+
+        # Should not have DISCONNECTED_PARTS issue
+        codes = [i.code for i in result.issues]
+        assert "DISCONNECTED_PARTS" not in codes
+
+    def test_multiple_components_fails(self, validator, disconnected_mesh):
+        """Mesh with multiple components should fail."""
+        result = validator.validate(disconnected_mesh)
+
+        # Should have DISCONNECTED_PARTS issue
+        codes = [i.code for i in result.issues]
+        assert "DISCONNECTED_PARTS" in codes
+
+    def test_returns_component_count(self, validator, disconnected_mesh):
+        """Issue details should include component count."""
+        result = validator.validate(disconnected_mesh)
+
+        # Find the disconnected parts issue
+        issue = next(i for i in result.issues if i.code == "DISCONNECTED_PARTS")
+
+        assert issue.details is not None
+        assert "component_count" in issue.details
+        assert issue.details["component_count"] == 2
+
+    def test_returns_volumes(self, validator, disconnected_mesh):
+        """Issue details should include component volumes."""
+        result = validator.validate(disconnected_mesh)
+
+        issue = next(i for i in result.issues if i.code == "DISCONNECTED_PARTS")
+
+        assert issue.details is not None
+        assert "volumes_mm3" in issue.details
+        assert len(issue.details["volumes_mm3"]) > 0
+
+    def test_is_error_severity(self, validator, disconnected_mesh):
+        """Disconnected parts should be an error."""
+        result = validator.validate(disconnected_mesh)
+
+        issue = next(i for i in result.issues if i.code == "DISCONNECTED_PARTS")
+
+        assert issue.severity == ValidationSeverity.ERROR
+
+    def test_affects_is_valid(self, validator, disconnected_mesh):
+        """Disconnected parts should make mesh invalid."""
+        result = validator.validate(disconnected_mesh)
+
+        # Mesh should be marked as invalid
+        assert result.is_valid is False

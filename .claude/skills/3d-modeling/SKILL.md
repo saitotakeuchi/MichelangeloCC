@@ -310,6 +310,93 @@ Common issues:
 - **NOT_WATERTIGHT**: Mesh has holes - check boolean operations
 - **DEGENERATE_FACES**: Zero-area triangles - simplify geometry
 - **SELF_INTERSECTION**: Overlapping faces - check boolean order
+- **DISCONNECTED_PARTS**: Floating geometry - see section below
+
+## Avoiding Floating Parts
+
+Floating or disconnected parts are a common issue that makes models unprintable. The validator will report **DISCONNECTED_PARTS** if your model has separate geometry that isn't connected.
+
+### Common Causes
+
+1. **Boolean operations that don't intersect**
+   ```python
+   # WRONG - cylinder is outside the box, creates floating geometry
+   box = Box(20, 20, 20)
+   hole = Pos(50, 0, 0) * Cylinder(5, 20)  # Too far away!
+   result = box - hole  # Subtraction has no effect, but may create artifacts
+   ```
+
+2. **Components with gaps**
+   ```python
+   # WRONG - parts don't touch, will be disconnected
+   base = Box(50, 50, 10)
+   top = Pos(0, 0, 15) * Box(30, 30, 10)  # Gap of 5mm!
+   result = base + top  # Creates two separate parts
+   ```
+
+3. **Multiple shapes without union**
+   ```python
+   # WRONG - shapes are created but not combined
+   part1 = Box(20, 20, 10)
+   part2 = Pos(0, 0, 10) * Cylinder(10, 15)
+   # Missing: result = part1 + part2
+   model = MichelangeloModel(part=part1, ...)  # Only uses part1!
+   ```
+
+### Best Practices
+
+1. **Always union multi-part objects**
+   ```python
+   # RIGHT - explicit union creates single connected solid
+   base = Box(50, 50, 10)
+   pillar = Pos(0, 0, 10) * Cylinder(10, 30)
+   result = base + pillar  # Union creates one connected part
+   ```
+
+2. **Ensure parts overlap for unions**
+   ```python
+   # RIGHT - parts overlap slightly to ensure solid connection
+   base = Box(50, 50, 10)
+   top = Pos(0, 0, 9) * Box(30, 30, 10)  # Overlaps by 1mm
+   result = base + top  # Creates single watertight solid
+   ```
+
+3. **Position holes within solid bounds**
+   ```python
+   # RIGHT - hole is inside the box
+   box = Box(50, 50, 20)
+   # Hole at center, ensure it goes through
+   hole = Cylinder(5, 20)  # Same height as box
+   result = box - hole  # Clean subtraction
+   ```
+
+4. **Verify dimensions before boolean ops**
+   ```python
+   # Calculate positions based on part dimensions
+   base_height = 10
+   pillar_height = 30
+   pillar_radius = 8
+
+   base = Box(50, 50, base_height)
+   # Position pillar to start at top of base (with 1mm overlap)
+   pillar = Pos(0, 0, base_height - 1) * Cylinder(pillar_radius, pillar_height)
+   result = base + pillar
+   ```
+
+### Validation During Development
+
+Run validation frequently to catch floating parts early:
+
+```bash
+mcc validate mesh model.py --verbose
+```
+
+Look for the **DISCONNECTED_PARTS** error message. If it appears:
+1. Check your boolean operations (+, -, &)
+2. Verify parts overlap where they should connect
+3. Make sure all components are combined into the final model
+
+The preview viewer will also show a warning banner if disconnected parts are detected.
 
 ## Example: Complete Workflow
 
