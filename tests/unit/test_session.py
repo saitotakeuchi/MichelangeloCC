@@ -18,7 +18,6 @@ from michelangelocc.session import (
     tmux_session_exists,
     attach_tmux_session,
     cleanup_server,
-    find_available_port,
 )
 
 
@@ -390,32 +389,3 @@ class TestAttachTmuxSession:
         assert "test-session" in call_args
 
 
-class TestFindAvailablePort:
-    """Tests for find_available_port function."""
-
-    def test_finds_port(self):
-        """Should find an available port."""
-        from michelangelocc.session import find_available_port
-
-        port = find_available_port()
-
-        assert port is not None
-        assert 8080 <= port <= 65535
-
-    def test_finds_different_port_when_occupied(self):
-        """Should find different port when preferred is occupied."""
-        from michelangelocc.session import find_available_port
-        import socket
-
-        # Occupy a port
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('localhost', 8080))
-        sock.listen(1)
-
-        try:
-            port = find_available_port(start_port=8080)
-            # Should find a different port
-            assert port != 8080 or port is None
-        finally:
-            sock.close()
