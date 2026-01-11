@@ -282,7 +282,8 @@ def validate_mesh(
         console.print(f"[red]Error:[/red] File not found: {input_path}")
         raise typer.Exit(1)
 
-    console.print(f"[cyan]Validating:[/cyan] {input_path}")
+    if not json_output:
+        console.print(f"[cyan]Validating:[/cyan] {input_path}")
 
     # Load mesh
     try:

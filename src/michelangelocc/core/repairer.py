@@ -259,8 +259,10 @@ class MeshRepairer:
         """Remove zero-area and invalid triangles."""
         original_count = len(mesh.faces)
 
-        # Remove degenerate faces
-        mesh.remove_degenerate_faces()
+        # Remove degenerate faces using nondegenerate_faces mask
+        # (remove_degenerate_faces was removed in newer trimesh versions)
+        mask = mesh.nondegenerate_faces()
+        mesh.update_faces(mask)
         # Also remove unreferenced vertices
         mesh.remove_unreferenced_vertices()
 

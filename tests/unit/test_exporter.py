@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+import tempfile
 import trimesh
 
 from michelangelocc.core.exporter import (
@@ -10,6 +11,13 @@ from michelangelocc.core.exporter import (
     ExportQuality,
     STLFormat,
 )
+
+
+@pytest.fixture
+def temp_dir():
+    """Create a temporary directory for test files."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
 
 
 @pytest.fixture
@@ -134,3 +142,116 @@ class TestSTLExporter:
         )
 
         assert binary_path.stat().st_size < ascii_path.stat().st_size
+
+    def test_export_without_validation(self, exporter, sample_mesh, temp_dir):
+        """Export without validation should skip validation."""
+        output_path = temp_dir / "test.stl"
+
+        result = exporter.export_mesh(
+            sample_mesh,
+            output_path,
+            ExportSettings(validate_before_export=False)
+        )
+
+        assert result.success is True
+        assert result.validation_result is None
+
+    def test_export_to_bytes(self, exporter, sample_mesh):
+        """Export to bytes should return STL data."""
+        stl_bytes = exporter.export_to_bytes(
+            sample_mesh,
+            ExportSettings(format=STLFormat.BINARY)
+        )
+
+        assert stl_bytes is not None
+        assert len(stl_bytes) > 0
+
+    def test_export_to_bytes_ascii(self, exporter, sample_mesh):
+        """Export to bytes in ASCII format."""
+        stl_bytes = exporter.export_to_bytes(
+            sample_mesh,
+            ExportSettings(format=STLFormat.ASCII)
+        )
+
+        assert stl_bytes is not None
+        assert b"solid" in stl_bytes.lower()
+
+    def test_estimate_file_size(self, exporter, sample_mesh):
+        """Estimate file size should give reasonable estimate."""
+        estimate = exporter.estimate_file_size(sample_mesh)
+
+        assert estimate > 0
+
+    def test_export_with_quality_presets(self, exporter, sample_mesh, temp_dir):
+        """Export with different quality presets should work."""
+        for quality in ExportQuality:
+            output_path = temp_dir / f"test_{quality.value}.stl"
+
+            result = exporter.export_mesh(
+                sample_mesh,
+                output_path,
+                ExportSettings(quality=quality)
+            )
+
+            assert result.success is True
+            assert output_path.exists()
+
+
+class TestExportQuality:
+    """Tests for ExportQuality enum."""
+
+    def test_quality_values(self):
+        """Quality enum should have expected values."""
+        assert ExportQuality.DRAFT.value == "draft"
+        assert ExportQuality.STANDARD.value == "standard"
+        assert ExportQuality.HIGH.value == "high"
+        assert ExportQuality.ULTRA.value == "ultra"
+
+
+class TestSTLFormat:
+    """Tests for STLFormat enum."""
+
+    def test_format_values(self):
+        """Format enum should have expected values."""
+        assert STLFormat.BINARY.value == "binary"
+        assert STLFormat.ASCII.value == "ascii"
+
+
+class TestExportResult:
+    """Tests for ExportResult class."""
+
+    def test_summary_with_validation(self, temp_dir):
+        """Summary should include validation when present."""
+        from michelangelocc.core.exporter import ExportResult
+        from michelangelocc.core.validator import ValidationResult
+
+        result = ExportResult(
+            success=True,
+            output_path=temp_dir / "test.stl",
+            file_size_bytes=1000,
+            triangle_count=12,
+            validation_result=ValidationResult(
+                is_valid=True,
+                is_watertight=True,
+                is_printable=True,
+                triangle_count=12,
+                vertex_count=8,
+            ),
+        )
+
+        summary = result.summary()
+        assert "Validation" in summary or "Valid" in summary
+
+    def test_summary_failure(self, temp_dir):
+        """Summary should indicate failure."""
+        from michelangelocc.core.exporter import ExportResult
+
+        result = ExportResult(
+            success=False,
+            output_path=temp_dir / "test.stl",
+            error_message="Test error",
+        )
+
+        summary = result.summary()
+        assert "FAILED" in summary
+        assert "Test error" in summary

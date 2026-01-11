@@ -283,3 +283,119 @@ class TestWebSocket:
             websocket.send_text("ping")
             response = websocket.receive_text()
             assert response == "ping"
+
+
+class TestModelInfoCache:
+    """Tests for model info caching."""
+
+    @pytest.mark.asyncio
+    async def test_get_info_uses_cache(self, valid_stl_file):
+        """GET /model/info should use cache when available."""
+        import michelangelocc.server.app as app_module
+
+        # Set up cache
+        cached_info = {
+            "name": "cached_model",
+            "dimensions": {"x": 10, "y": 10, "z": 10},
+            "triangles": 12,
+            "vertices": 8,
+            "is_watertight": True,
+        }
+        app_module._model_info_cache = cached_info
+        app_module._current_stl_path = None
+        app_module._current_script_path = None
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/model/info")
+
+        assert response.status_code == 200
+        info = response.json()
+        assert info["name"] == "cached_model"
+
+        # Clean up
+        app_module._model_info_cache = None
+
+
+class TestNotifyModelChange:
+    """Tests for notify_model_change function."""
+
+    @pytest.mark.asyncio
+    async def test_notify_clears_cache(self):
+        """notify_model_change should clear caches."""
+        import michelangelocc.server.app as app_module
+        from michelangelocc.server.app import notify_model_change
+
+        # Set up caches
+        app_module._model_cache = b"some stl data"
+        app_module._model_info_cache = {"name": "test"}
+
+        # Call notify
+        await notify_model_change()
+
+        # Caches should be cleared
+        assert app_module._model_cache is None
+        assert app_module._model_info_cache is None
+
+
+class TestGetStlFromScript:
+    """Tests for loading STL from Python script."""
+
+    @pytest.fixture
+    def valid_model_script(self, temp_dir):
+        """Create a valid model script."""
+        script = temp_dir / "model.py"
+        script.write_text('''
+from build123d import Box
+from michelangelocc import MichelangeloModel, ModelMetadata
+
+part = Box(20, 20, 20)
+model = MichelangeloModel(
+    part=part,
+    metadata=ModelMetadata(name="test_cube", description="A test cube")
+)
+''')
+        return script
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.mark.asyncio
+    async def test_get_stl_from_script(self, valid_model_script):
+        """GET /model.stl should generate STL from script."""
+        import michelangelocc.server.app as app_module
+        app_module._current_script_path = valid_model_script
+        app_module._current_stl_path = None
+        app_module._model_cache = None
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/model.stl")
+
+        assert response.status_code == 200
+        assert len(response.content) > 0
+
+        # Clean up
+        app_module._current_script_path = None
+        app_module._model_cache = None
+
+    @pytest.mark.asyncio
+    async def test_get_info_from_script(self, valid_model_script):
+        """GET /model/info should return info from script."""
+        import michelangelocc.server.app as app_module
+        app_module._current_script_path = valid_model_script
+        app_module._current_stl_path = None
+        app_module._model_info_cache = None
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/model/info")
+
+        assert response.status_code == 200
+        info = response.json()
+        assert "name" in info
+        assert info["name"] == "test_cube"
+
+        # Clean up
+        app_module._current_script_path = None
+        app_module._model_info_cache = None
