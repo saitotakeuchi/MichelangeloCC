@@ -38,8 +38,34 @@ The file watcher detects all types of file changes including atomic writes (temp
 1. **Read** the current `model.py` to understand the starting template
 2. **Modify** `model.py` based on the user's request
 3. **Wait** - The browser automatically shows the updated model
-4. **Ask** the user for feedback and iterate
-5. **Export** when satisfied: `mcc export stl model.py -o output/model.stl --quality high`
+4. **Verify** - Check for Python errors before proceeding (see below)
+5. **Ask** the user for feedback and iterate
+6. **Export** when satisfied: `mcc export stl model.py -o output/model.stl --quality high`
+
+### CRITICAL: Verify Model Before Review
+
+**NEVER ask the user to review a model without first verifying it loads correctly.**
+
+After saving `model.py`, you MUST check for errors:
+
+```bash
+# Run this after every save to check for Python errors
+python model.py
+```
+
+If the command shows any errors (NameError, SyntaxError, TypeError, etc.):
+1. **Read the error message** - it tells you exactly what's wrong
+2. **Fix the issue** in `model.py`
+3. **Run `python model.py` again** to verify the fix
+4. **Only then** ask the user for feedback
+
+Common errors to watch for:
+- `NameError: name 'Scale' is not defined` → Use `scale()` function instead
+- `SyntaxError` → Check for missing colons, parentheses, quotes
+- `TypeError` → Check function arguments match expected types
+- `AttributeError` → Check method/property names are correct
+
+**The browser showing "Error loading model" means Python failed. Always check terminal output.**
 
 ### Best Practices in Session Mode
 - Make **small, incremental changes** - easier to debug if something goes wrong
