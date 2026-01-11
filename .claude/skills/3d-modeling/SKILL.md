@@ -393,12 +393,65 @@ If the preview shows "Error loading model", check the terminal for the actual Py
 
 ### Reference Working Examples
 
-Before using new patterns, check `.claude/skills/3d-modeling/examples/`:
-- `gear.py` - Complex parametric design with sketches
-- `bracket.py` - Mechanical part with holes and fillets
-- `vase.py` - Organic loft shapes with multiple profiles
+**ALWAYS reference these examples when creating similar models.** All examples are tested and working - copy patterns from them.
 
-These examples are tested and working - copy patterns from them.
+Location: `.claude/skills/3d-modeling/examples/`
+
+#### Mechanical Parts
+| Example | Key Patterns | Use When |
+|---------|--------------|----------|
+| `gear.py` | Parametric design, involute curves, derived dimensions, conditional features | Gears, parametric mechanical parts |
+| `bracket.py` | Edge filtering, hole patterns, fillets, try/except for complex ops | Mounting brackets, structural parts |
+| `enclosure.py` | Shell/offset for hollow parts, mating tolerances, snap-fit lid | Boxes, cases, enclosures |
+
+#### Household Items
+| Example | Key Patterns | Use When |
+|---------|--------------|----------|
+| `hook.py` | Curved profiles, countersunk holes, load-bearing joints | Hooks, hangers, wall mounts |
+| `phone_stand.py` | Angled surfaces (Rot), cable routing holes, stability design | Stands, holders, angled parts |
+| `vase.py` | Loft between profiles, easing functions, organic curves | Vases, organic shapes, smooth forms |
+
+#### Functional Prints
+| Example | Key Patterns | Use When |
+|---------|--------------|----------|
+| `keychain.py` | Text embossing, thin features, ring holes, RectangleRounded | Keychains, tags, labels, thin parts |
+
+#### Quick Pattern Reference
+
+**Shell/Hollow a part:**
+```python
+# From enclosure.py - use offset() with openings
+top_face = part.faces().sort_by(Axis.Z)[-1]
+offset(amount=-wall_thickness, openings=[top_face])
+```
+
+**Angled geometry:**
+```python
+# From phone_stand.py - use Rot() for angles
+angled_part = Rot(angle, 0, 0) * part
+```
+
+**Text embossing:**
+```python
+# From keychain.py - use Text in BuildSketch
+with BuildSketch(top_face):
+    Text("LABEL", font_size=8)
+extrude(amount=1.0)  # Positive = emboss, negative = engrave
+```
+
+**Countersunk holes:**
+```python
+# From hook.py - two-step: through hole + countersink
+Cylinder(hole_diameter/2, thickness)  # Through hole
+Pos(0, 0, 0) * Cylinder(countersink_diameter/2, countersink_depth)  # Countersink
+```
+
+**Mating parts tolerance:**
+```python
+# From enclosure.py - subtract clearance from mating dimension
+clearance = 0.3  # mm - for easy fit
+inner_size = outer_size - 2 * wall - 2 * clearance
+```
 
 ## Error Handling
 
