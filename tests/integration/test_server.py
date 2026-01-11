@@ -357,6 +357,13 @@ model = MichelangeloModel(
         return script
 
     @pytest.fixture
+    def invalid_model_script(self, temp_dir):
+        """Create an invalid model script."""
+        script = temp_dir / "invalid.py"
+        script.write_text('raise Exception("Test error")')
+        return script
+
+    @pytest.fixture
     def temp_dir(self):
         """Create a temporary directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -399,3 +406,35 @@ model = MichelangeloModel(
         # Clean up
         app_module._current_script_path = None
         app_module._model_info_cache = None
+
+    @pytest.mark.asyncio
+    async def test_get_stl_from_invalid_script(self, invalid_model_script):
+        """GET /model.stl should return 500 for invalid script."""
+        import michelangelocc.server.app as app_module
+        app_module._current_script_path = invalid_model_script
+        app_module._current_stl_path = None
+        app_module._model_cache = None
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/model.stl")
+
+        assert response.status_code == 500
+
+        # Clean up
+        app_module._current_script_path = None
+
+    @pytest.mark.asyncio
+    async def test_get_info_from_invalid_script(self, invalid_model_script):
+        """GET /model/info should return 500 for invalid script."""
+        import michelangelocc.server.app as app_module
+        app_module._current_script_path = invalid_model_script
+        app_module._current_stl_path = None
+        app_module._model_info_cache = None
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/model/info")
+
+        assert response.status_code == 500
+
+        # Clean up
+        app_module._current_script_path = None

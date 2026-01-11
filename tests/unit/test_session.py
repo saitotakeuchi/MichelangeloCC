@@ -375,17 +375,18 @@ class TestCleanupServer:
 class TestAttachTmuxSession:
     """Tests for attach_tmux_session function."""
 
-    @patch("michelangelocc.session.subprocess.run")
-    def test_attach_calls_tmux(self, mock_run):
+    @patch("michelangelocc.session.os.system")
+    def test_attach_calls_tmux(self, mock_system):
         """Should call tmux attach with correct args."""
-        from michelangelocc.session import attach_tmux_session
+        mock_system.return_value = 0
 
-        attach_tmux_session("test-session")
+        result = attach_tmux_session("test-session")
 
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args[0][0]
-        assert "tmux" in call_args
-        assert "attach-session" in call_args or "attach" in call_args
-        assert "test-session" in call_args
+        mock_system.assert_called_once()
+        call_arg = mock_system.call_args[0][0]
+        assert "tmux" in call_arg
+        assert "attach-session" in call_arg
+        assert "test-session" in call_arg
+        assert result == 0
 
 
