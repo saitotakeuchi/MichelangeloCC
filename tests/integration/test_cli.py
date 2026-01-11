@@ -210,6 +210,40 @@ class TestHelpCommands:
         assert result.exit_code == 0
         assert "stl" in result.stdout.lower()
 
+    def test_help_preview(self):
+        """help preview should show preview commands."""
+        result = runner.invoke(app, ["help", "preview"])
+
+        assert result.exit_code == 0
+        assert "preview" in result.stdout.lower()
+
+    def test_help_export(self):
+        """help export should show export commands."""
+        result = runner.invoke(app, ["help", "export"])
+
+        assert result.exit_code == 0
+        assert "export" in result.stdout.lower()
+
+    def test_help_validate(self):
+        """help validate should show validate commands."""
+        result = runner.invoke(app, ["help", "validate"])
+
+        assert result.exit_code == 0
+        assert "validate" in result.stdout.lower()
+
+    def test_help_repair(self):
+        """help repair should show repair commands."""
+        result = runner.invoke(app, ["help", "repair"])
+
+        assert result.exit_code == 0
+        assert "repair" in result.stdout.lower()
+
+    def test_help_unknown_command(self):
+        """help with unknown command should show general help."""
+        result = runner.invoke(app, ["help", "unknown_command"])
+
+        assert result.exit_code == 0
+
 
 class TestValidateDisconnectedParts:
     """Tests for disconnected parts validation."""
